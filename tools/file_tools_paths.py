@@ -171,7 +171,17 @@ def _resolve_base_dir(
 
 def _resolve_path_for_task(filepath: str, task_id: str = "default") -> Path | PurePosixPath:
     """Resolve *filepath* against the task's absolute base directory
-    (absolute inputs are returned resolved-but-unanchored)."""
+    (absolute inputs are returned resolved-but-unanchored).
+
+    On the ``ssh`` backend a leading ``~`` is returned untouched: expanding it
+    here would resolve against the GATEWAY process's HOME, but the path is
+    executed on the remote, where that directory need not exist (#71201).
+    ``ShellFileOperations._expand_path`` expands it against the remote ``$HOME``
+    at execution time. ssh only — container backends (docker/modal/daytona)
+    still expand ``~`` host-side via ``_host_text``.
+    """
+    if filepath.startswith("~") and _terminal_env_type_for_task(task_id) == "ssh":
+        return PurePosixPath(filepath)
     container_paths = _uses_container_paths(task_id)
     return _anchor(_host_text(filepath, container_paths),
                    lambda: _resolve_base_dir(task_id, container_paths=container_paths), container_paths)

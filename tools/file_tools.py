@@ -795,8 +795,10 @@ def write_file_tool(path: str, content: str, task_id: str = "default",
             if rewrite_hint and not result_dict.get("error"):
                 result_dict["hint"] = rewrite_hint
             if _resolved:
-                # Always report the ABSOLUTE path written so a wrong-cwd mismatch
+                # Always report the resolved path written so a wrong-cwd mismatch
                 # is visible in the response instead of silently landing elsewhere.
+                # Host-absolute, except on the ssh backend where a ``~`` path stays
+                # in tilde form (expanded against the remote $HOME, #71201).
                 result_dict["resolved_path"] = _resolved
             if result_dict.get("error"):
                 _update_read_timestamp(path, task_id)
@@ -892,8 +894,9 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
             if stale_warnings:
                 result_dict["_warning"] = " | ".join(stale_warnings)
             if not result_dict.get("error"):
-                # Report the ABSOLUTE path(s) actually patched so a wrong-cwd
-                # mismatch is visible instead of silently landing elsewhere.
+                # Report the resolved path(s) actually patched so a wrong-cwd
+                # mismatch is visible instead of silently landing elsewhere
+                # (host-absolute; ``~``-form on the ssh backend, see #71201).
                 _resolved_modified = [_path_to_resolved.get(_p) or _p for _p in _paths_to_check]
                 result_dict["files_modified"] = _resolved_modified
                 if len(_resolved_modified) == 1:
